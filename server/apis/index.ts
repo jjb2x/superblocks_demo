@@ -15,10 +15,16 @@
 // Add your API imports here
 import GetExceptions from "./GetExceptions/api.js";
 import UpdateException from "./UpdateException/api.js";
+import SetupJiraTable from "./jira/setup-jira-table.js";
+import GetJiraRequests from "./jira/get-jira-requests.js";
+import CreateJiraRequest from "./jira/create-jira-request.js";
 
 const apis = {
     GetExceptions,
-    UpdateException
+    UpdateException,
+    SetupJiraTable,
+    GetJiraRequests,
+    CreateJiraRequest,
 } as const;
 
 export default apis;

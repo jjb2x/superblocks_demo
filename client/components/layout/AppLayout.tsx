@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Icon } from "@/components/ui/icon";
 import type { IconName } from "lucide-react/dynamic";
 import { cn } from "@/lib/utils";
+import { useApi } from "@/hooks/useApi.js";
 import {
   Dialog,
   DialogContent,
@@ -402,36 +403,8 @@ function JiraCreateRequestDialog({
   const [description, setDescription] = useState("");
   const [createAnother, setCreateAnother] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
-
-  const handleCreate = useCallback(() => {
-    if (!summary.trim()) {
-      setSummaryTouched(true);
-      return;
-    }
-    toast.success("Request created successfully", {
-      description: `"${summary}" has been added to Pharmacy RSM backlog.`,
-    });
-    if (createAnother) {
-      setSummary("");
-      setComponent("");
-      setDescription("");
-      setSummaryTouched(false);
-    } else {
-      setSummary("");
-      setComponent("");
-      setDescription("");
-      setSummaryTouched(false);
-      onOpenChange(false);
-    }
-  }, [summary, createAnother, onOpenChange]);
-
-  const handleCancel = useCallback(() => {
-    setSummary("");
-    setComponent("");
-    setDescription("");
-    setSummaryTouched(false);
-    onOpenChange(false);
-  }, [onOpenChange]);
+  const [completionDate, setCompletionDate] = useState("");
+  const seqRef = useRef(300);
 
   // Format reporter name as "Last, First"
   const nameParts = reporterName.trim().split(" ");
@@ -439,6 +412,63 @@ function JiraCreateRequestDialog({
     nameParts.length >= 2
       ? `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(" ")}`
       : reporterName;
+
+  const { run: createJiraRequest, loading: creating } = useApi("CreateJiraRequest");
+
+  const handleCreate = useCallback(async () => {
+    if (!summary.trim()) {
+      setSummaryTouched(true);
+      return;
+    }
+    const prefix = space === "pharmacy-rsm" ? "RSM" : "OPS";
+    const id = `${prefix}-${seqRef.current++}`;
+    try {
+      await createJiraRequest({
+        id,
+        space,
+        work_type: workType,
+        status,
+        summary: summary.trim(),
+        reporter: formattedReporter,
+        component: component || null,
+        description: description.trim() || null,
+        requested_completion_date: completionDate || null,
+      });
+      toast.success("Request created successfully", {
+        description: `"${summary}" has been added as ${id}.`,
+      });
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as { message: unknown }).message)
+          : String(error);
+      toast.error("Failed to create request: " + message);
+      return;
+    }
+    if (createAnother) {
+      setSummary("");
+      setComponent("");
+      setDescription("");
+      setCompletionDate("");
+      setSummaryTouched(false);
+    } else {
+      setSummary("");
+      setComponent("");
+      setDescription("");
+      setCompletionDate("");
+      setSummaryTouched(false);
+      onOpenChange(false);
+    }
+  }, [summary, space, workType, status, component, description, completionDate, createAnother, onOpenChange, createJiraRequest, formattedReporter]);
+
+  const handleCancel = useCallback(() => {
+    setSummary("");
+    setComponent("");
+    setDescription("");
+    setCompletionDate("");
+    setSummaryTouched(false);
+    onOpenChange(false);
+  }, [onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -639,7 +669,7 @@ function JiraCreateRequestDialog({
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Requested Completion Date</Label>
-                <Input type="date" className="max-w-[200px]" />
+                <Input type="date" className="max-w-[200px]" value={completionDate} onChange={(e) => setCompletionDate(e.target.value)} />
                 <p className="text-[11px] text-muted-foreground">
                   Optional: specify when this request should be completed by.
                 </p>
@@ -664,7 +694,9 @@ function JiraCreateRequestDialog({
             <Button variant="ghost" onClick={handleCancel}>
               Cancel
             </Button>
-            <Button onClick={handleCreate}>Create</Button>
+            <Button onClick={handleCreate} disabled={creating}>
+              {creating ? "Creating…" : "Create"}
+            </Button>
           </div>
         </div>
       </DialogContent>
