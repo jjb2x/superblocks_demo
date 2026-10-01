@@ -185,6 +185,33 @@ export default function ExceptionQueue() {
     closed: allExceptions.filter((e) => e.status === "Closed").length,
   }), [allExceptions]);
 
+  // Operational summary derived from the Databricks-backed exception records
+const exceptionSummary = useMemo(() => {
+  const openExceptions = allExceptions.filter(
+    (e) => e.status !== "Resolved" && e.status !== "Closed"
+  );
+
+  const highPriority = openExceptions.filter(
+    (e) => e.priority === "Critical" || e.priority === "High"
+  ).length;
+
+  const unassigned = openExceptions.filter(
+    (e) => !e.assignedOwner
+  ).length;
+
+  const prescriptionsAffected = openExceptions.reduce(
+    (total, e) => total + e.prescriptionsAffected,
+    0
+  );
+
+  return {
+    open: openExceptions.length,
+    highPriority,
+    unassigned,
+    prescriptionsAffected,
+  };
+}, [allExceptions]);
+
   // Reset page & clear status filter when switching tabs
   const handleTabChange = useCallback((tab: QueueTab) => {
     setActiveTab(tab);
@@ -437,6 +464,31 @@ export default function ExceptionQueue() {
               {uniqueLocations.map((l) => <SelectItem key={l.id} value={l.id} className="text-xs">{l.name}</SelectItem>)}
             </SelectContent>
           </Select>
+        </div>
+      </div>
+
+            {/* Databricks-backed operational summary */}
+      <div className="grid grid-cols-4 gap-3 px-6 py-3 border-b bg-muted/20">
+        <div className="rounded-lg border bg-background p-3">
+          <p className="text-xs text-muted-foreground">Open Exceptions</p>
+          <p className="text-2xl font-bold">{exceptionSummary.open}</p>
+        </div>
+
+        <div className="rounded-lg border bg-background p-3">
+          <p className="text-xs text-muted-foreground">High / Critical</p>
+          <p className="text-2xl font-bold">{exceptionSummary.highPriority}</p>
+        </div>
+
+        <div className="rounded-lg border bg-background p-3">
+          <p className="text-xs text-muted-foreground">Unassigned</p>
+          <p className="text-2xl font-bold">{exceptionSummary.unassigned}</p>
+        </div>
+
+        <div className="rounded-lg border bg-background p-3">
+          <p className="text-xs text-muted-foreground">Rx Affected</p>
+          <p className="text-2xl font-bold">
+            {exceptionSummary.prescriptionsAffected.toLocaleString()}
+          </p>
         </div>
       </div>
 
