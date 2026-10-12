@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Icon } from "@/components/ui/icon";
 import type { IconName } from "lucide-react/dynamic";
@@ -404,8 +404,6 @@ function JiraCreateRequestDialog({
   const [createAnother, setCreateAnother] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [completionDate, setCompletionDate] = useState("");
-  const seqRef = useRef(300);
-
   // Format reporter name as "Last, First"
   const nameParts = reporterName.trim().split(" ");
   const formattedReporter =
@@ -420,11 +418,8 @@ function JiraCreateRequestDialog({
       setSummaryTouched(true);
       return;
     }
-    const prefix = space === "pharmacy-rsm" ? "RSM" : "OPS";
-    const id = `${prefix}-${seqRef.current++}`;
     try {
-      await createJiraRequest({
-        id,
+      const result = await createJiraRequest({
         space,
         work_type: workType,
         status,
@@ -434,8 +429,9 @@ function JiraCreateRequestDialog({
         description: description.trim() || null,
         requested_completion_date: completionDate || null,
       });
+      const newId = result && typeof result === "object" && "id" in result ? String(result.id) : "";
       toast.success("Request created successfully", {
-        description: `"${summary}" has been added as ${id}.`,
+        description: `"${summary}" has been added as ${newId}.`,
       });
     } catch (error) {
       const message =
