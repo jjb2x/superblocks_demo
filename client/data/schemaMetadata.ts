@@ -193,7 +193,7 @@ export const PLATFORMS: PlatformConfig[] = [
     id: "databricks",
     label: "Databricks",
     connectionStatus: "connected",
-    cluster: "pharmacy-analytics-prod",
+    cluster: "pharmacy-analytics-dev",
     databases: [
       {
         name: "workspace",
