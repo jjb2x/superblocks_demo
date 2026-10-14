@@ -29,7 +29,14 @@ function hashCode(str: string): number {
  */
 export function generateWorkflowLineage(exception: ExceptionRecord): WorkflowStep[] {
   const seed = hashCode(exception.id);
-  const createdAt = parseISO(exception.createdAt);
+  // Parse createdAt robustly — handle ISO strings, date-only strings, and timestamps
+  let createdAt = parseISO(exception.createdAt);
+  if (isNaN(createdAt.getTime())) {
+    createdAt = new Date(exception.createdAt);
+  }
+  if (isNaN(createdAt.getTime())) {
+    createdAt = new Date(); // fallback to now if all parsing fails
+  }
   const steps: WorkflowStep[] = [];
   let stepIndex = 0;
 
@@ -40,10 +47,13 @@ export function generateWorkflowLineage(exception: ExceptionRecord): WorkflowSte
   const isUnderReview = exception.status === "Under Review";
 
   // Helper to generate timestamps working backward from creation
+  const safeFmt = (d: Date) => {
+    try { return format(d, "yyyy-MM-dd'T'HH:mm:ss"); } catch { return d.toISOString(); }
+  };
   const preCreationOffset = (hoursBack: number) =>
-    format(subHours(createdAt, hoursBack), "yyyy-MM-dd'T'HH:mm:ss");
+    safeFmt(subHours(createdAt, hoursBack));
   const postCreationOffset = (minutesAfter: number) =>
-    format(subMinutes(createdAt, -minutesAfter), "yyyy-MM-dd'T'HH:mm:ss");
+    safeFmt(subMinutes(createdAt, -minutesAfter));
 
   // ─── Step 1: Initial trigger (varies by category) ───
   const triggerEvents: Record<string, { event: string; actor: string; system: string; detail: string; icon: WorkflowStep["icon"] }> = {
