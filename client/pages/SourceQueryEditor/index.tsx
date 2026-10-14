@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { useApi } from "@/hooks/useApi.js";
 import QueryWorkbench from "@/components/shared/QueryWorkbench";
 
 // --- Data Types ---
@@ -47,31 +48,31 @@ interface QueryDefinition {
 const TABLES: TableNode[] = [
   {
     name: "PHARMACY_LOCATIONS",
-    schema: "ANALYTICS.PHARMACY",
+    schema: "workspace.default",
     columns: ["location_id", "name", "region", "pharmacy_type", "operating_status", "staffing_level_pct", "capacity_utilization_pct"],
     primaryKey: "location_id",
   },
   {
     name: "OPERATIONAL_DAILY_METRICS",
-    schema: "ANALYTICS.PHARMACY",
+    schema: "workspace.default",
     columns: ["metric_date", "location_id", "prescription_volume", "avg_turnaround_min", "open_exception_count", "service_level_pct", "delayed_prescriptions", "resolved_exceptions"],
     primaryKey: "metric_date, location_id",
   },
   {
     name: "OPERATIONAL_EXCEPTIONS",
-    schema: "OPERATIONS.PHARMACY",
+    schema: "workspace.default",
     columns: ["exception_id", "location_id", "issue_category", "priority", "status", "assigned_owner", "created_at", "days_open", "prescriptions_affected"],
     primaryKey: "exception_id",
   },
   {
     name: "HOURLY_METRICS",
-    schema: "ANALYTICS.PHARMACY",
+    schema: "workspace.default",
     columns: ["metric_hour", "metric_date", "location_id", "prescription_volume"],
     primaryKey: "metric_hour, metric_date, location_id",
   },
   {
     name: "SHIPPING_RECORDS",
-    schema: "OPERATIONS.PHARMACY",
+    schema: "workspace.default",
     columns: ["shipment_id", "location_id", "carrier", "tracking_number", "status", "shipped_date", "estimated_delivery", "temperature_controlled"],
     primaryKey: "shipment_id",
   },
@@ -98,7 +99,7 @@ const INITIAL_QUERIES: QueryDefinition[] = [
     versions: [
       {
         id: "v1-1",
-        sql: `SELECT\n  pl.name AS pharmacy_name,\n  pl.region,\n  odm.metric_date,\n  SUM(odm.prescription_volume) AS total_volume,\n  AVG(odm.avg_turnaround_min) AS avg_tat,\n  AVG(odm.service_level_pct) AS avg_service_level,\n  SUM(odm.delayed_prescriptions) AS total_delayed,\n  SUM(odm.open_exception_count) AS total_open_exceptions,\n  SUM(odm.resolved_exceptions) AS total_resolved\nFROM ANALYTICS.PHARMACY.OPERATIONAL_DAILY_METRICS odm\nJOIN ANALYTICS.PHARMACY.PHARMACY_LOCATIONS pl\n  ON odm.location_id = pl.location_id\nWHERE odm.metric_date BETWEEN :start_date AND :end_date\n  AND (:location_id IS NULL OR pl.location_id = :location_id)\n  AND (:region IS NULL OR pl.region = :region)\nGROUP BY pl.name, pl.region, odm.metric_date\nORDER BY odm.metric_date DESC;`,
+        sql: `SELECT\n  pl.name AS pharmacy_name,\n  pl.region,\n  odm.metric_date,\n  SUM(odm.prescription_volume) AS total_volume,\n  AVG(odm.avg_turnaround_min) AS avg_tat,\n  AVG(odm.service_level_pct) AS avg_service_level,\n  SUM(odm.delayed_prescriptions) AS total_delayed,\n  SUM(odm.open_exception_count) AS total_open_exceptions,\n  SUM(odm.resolved_exceptions) AS total_resolved\nFROM workspace.default.operational_daily_metrics odm\nJOIN workspace.default.pharmacy_locations pl\n  ON odm.location_id = pl.location_id\nWHERE odm.metric_date BETWEEN :start_date AND :end_date\n  AND (:location_id IS NULL OR pl.location_id = :location_id)\n  AND (:region IS NULL OR pl.region = :region)\nGROUP BY pl.name, pl.region, odm.metric_date\nORDER BY odm.metric_date DESC;`,
         timestamp: "2025-07-15T09:30:00Z",
         label: "Initial version",
       },
@@ -114,7 +115,7 @@ const INITIAL_QUERIES: QueryDefinition[] = [
     versions: [
       {
         id: "v2-1",
-        sql: `SELECT\n  oe.issue_category,\n  oe.priority,\n  oe.status,\n  COUNT(*) AS exception_count,\n  AVG(oe.days_open) AS avg_days_open,\n  SUM(oe.prescriptions_affected) AS total_rx_affected,\n  pl.name AS pharmacy_name,\n  pl.region\nFROM OPERATIONS.PHARMACY.OPERATIONAL_EXCEPTIONS oe\nJOIN ANALYTICS.PHARMACY.PHARMACY_LOCATIONS pl\n  ON oe.location_id = pl.location_id\nWHERE oe.status NOT IN ('Resolved', 'Closed')\n  AND (:location_id IS NULL OR pl.location_id = :location_id)\n  AND (:region IS NULL OR pl.region = :region)\n  AND (:priority IS NULL OR oe.priority = :priority)\nGROUP BY oe.issue_category, oe.priority, oe.status, pl.name, pl.region\nORDER BY exception_count DESC;`,
+        sql: `SELECT\n  oe.issue_category,\n  oe.priority,\n  oe.status,\n  COUNT(*) AS exception_count,\n  AVG(oe.days_open) AS avg_days_open,\n  SUM(oe.prescriptions_affected) AS total_rx_affected,\n  pl.name AS pharmacy_name,\n  pl.region\nFROM workspace.default.operational_exceptions oe\nJOIN workspace.default.pharmacy_locations pl\n  ON oe.location_id = pl.location_id\nWHERE oe.status NOT IN ('Resolved', 'Closed')\n  AND (:location_id IS NULL OR pl.location_id = :location_id)\n  AND (:region IS NULL OR pl.region = :region)\n  AND (:priority IS NULL OR oe.priority = :priority)\nGROUP BY oe.issue_category, oe.priority, oe.status, pl.name, pl.region\nORDER BY exception_count DESC;`,
         timestamp: "2025-07-15T09:30:00Z",
         label: "Initial version",
       },
@@ -133,7 +134,7 @@ const INITIAL_QUERIES: QueryDefinition[] = [
     versions: [
       {
         id: "v3-1",
-        sql: `SELECT\n  pl.location_id,\n  pl.name AS pharmacy_name,\n  pl.region,\n  pl.pharmacy_type,\n  pl.operating_status,\n  pl.staffing_level_pct,\n  odm.service_level_pct,\n  odm.avg_turnaround_min,\n  odm.prescription_volume,\n  COALESCE(exc.open_count, 0) AS open_exceptions,\n  COALESCE(exc.critical_count, 0) AS critical_exceptions\nFROM ANALYTICS.PHARMACY.PHARMACY_LOCATIONS pl\nLEFT JOIN ANALYTICS.PHARMACY.OPERATIONAL_DAILY_METRICS odm\n  ON pl.location_id = odm.location_id\n  AND odm.metric_date = CURRENT_DATE\nLEFT JOIN (\n  SELECT\n    location_id,\n    COUNT(*) AS open_count,\n    SUM(CASE WHEN priority = 'Critical' THEN 1 ELSE 0 END) AS critical_count\n  FROM OPERATIONS.PHARMACY.OPERATIONAL_EXCEPTIONS\n  WHERE status NOT IN ('Resolved', 'Closed')\n  GROUP BY location_id\n) exc ON pl.location_id = exc.location_id\nWHERE (:region IS NULL OR pl.region = :region)\nORDER BY odm.service_level_pct ASC NULLS LAST;`,
+        sql: `SELECT\n  pl.location_id,\n  pl.name AS pharmacy_name,\n  pl.region,\n  pl.pharmacy_type,\n  pl.operating_status,\n  pl.staffing_level_pct,\n  odm.service_level_pct,\n  odm.avg_turnaround_min,\n  odm.prescription_volume,\n  COALESCE(exc.open_count, 0) AS open_exceptions,\n  COALESCE(exc.critical_count, 0) AS critical_exceptions\nFROM workspace.default.pharmacy_locations pl\nLEFT JOIN workspace.default.operational_daily_metrics odm\n  ON pl.location_id = odm.location_id\n  AND odm.metric_date = CURRENT_DATE\nLEFT JOIN (\n  SELECT\n    location_id,\n    COUNT(*) AS open_count,\n    SUM(CASE WHEN priority = 'Critical' THEN 1 ELSE 0 END) AS critical_count\n  FROM workspace.default.operational_exceptions\n  WHERE status NOT IN ('Resolved', 'Closed')\n  GROUP BY location_id\n) exc ON pl.location_id = exc.location_id\nWHERE (:region IS NULL OR pl.region = :region)\nORDER BY odm.service_level_pct ASC NULLS LAST;`,
         timestamp: "2025-07-15T09:30:00Z",
         label: "Initial version",
       },
@@ -152,7 +153,7 @@ const INITIAL_QUERIES: QueryDefinition[] = [
     versions: [
       {
         id: "v4-1",
-        sql: `SELECT\n  hm.metric_date,\n  hm.metric_hour,\n  pl.name AS pharmacy_name,\n  pl.location_id,\n  hm.prescription_volume AS hourly_volume,\n  odm.avg_turnaround_min AS daily_avg_tat,\n  odm.service_level_pct\nFROM ANALYTICS.PHARMACY.HOURLY_METRICS hm\nJOIN ANALYTICS.PHARMACY.PHARMACY_LOCATIONS pl\n  ON hm.location_id = pl.location_id\nJOIN ANALYTICS.PHARMACY.OPERATIONAL_DAILY_METRICS odm\n  ON hm.location_id = odm.location_id\n  AND hm.metric_date = odm.metric_date\nWHERE hm.metric_date BETWEEN :start_date AND :end_date\n  AND (:location_id IS NULL OR pl.location_id = :location_id)\nORDER BY hm.metric_date, hm.metric_hour;`,
+        sql: `SELECT\n  hm.metric_date,\n  hm.metric_hour,\n  pl.name AS pharmacy_name,\n  pl.location_id,\n  hm.prescription_volume AS hourly_volume,\n  odm.avg_turnaround_min AS daily_avg_tat,\n  odm.service_level_pct\nFROM workspace.default.hourly_metrics hm\nJOIN workspace.default.pharmacy_locations pl\n  ON hm.location_id = pl.location_id\nJOIN workspace.default.operational_daily_metrics odm\n  ON hm.location_id = odm.location_id\n  AND hm.metric_date = odm.metric_date\nWHERE hm.metric_date BETWEEN :start_date AND :end_date\n  AND (:location_id IS NULL OR pl.location_id = :location_id)\nORDER BY hm.metric_date, hm.metric_hour;`,
         timestamp: "2025-07-15T09:30:00Z",
         label: "Initial version",
       },
@@ -168,7 +169,7 @@ const INITIAL_QUERIES: QueryDefinition[] = [
     versions: [
       {
         id: "v5-1",
-        sql: `SELECT\n  sr.shipment_id,\n  sr.carrier,\n  sr.tracking_number,\n  sr.status AS shipment_status,\n  sr.shipped_date,\n  sr.estimated_delivery,\n  sr.temperature_controlled,\n  pl.name AS destination_pharmacy,\n  pl.region,\n  DATEDIFF('day', sr.shipped_date, COALESCE(sr.estimated_delivery, CURRENT_DATE)) AS transit_days\nFROM OPERATIONS.PHARMACY.SHIPPING_RECORDS sr\nJOIN ANALYTICS.PHARMACY.PHARMACY_LOCATIONS pl\n  ON sr.location_id = pl.location_id\nWHERE sr.status IN ('In Transit', 'Out for Delivery', 'Pending')\n  AND (:location_id IS NULL OR pl.location_id = :location_id)\n  AND (:carrier IS NULL OR sr.carrier = :carrier)\nORDER BY sr.estimated_delivery ASC;`,
+        sql: `SELECT\n  sr.shipment_id,\n  sr.carrier,\n  sr.tracking_number,\n  sr.status AS shipment_status,\n  sr.shipped_date,\n  sr.estimated_delivery,\n  sr.temperature_controlled,\n  pl.name AS destination_pharmacy,\n  pl.region,\n  DATEDIFF('day', sr.shipped_date, COALESCE(sr.estimated_delivery, CURRENT_DATE)) AS transit_days\nFROM workspace.default.shipping_records sr\nJOIN workspace.default.pharmacy_locations pl\n  ON sr.location_id = pl.location_id\nWHERE sr.status IN ('In Transit', 'Out for Delivery', 'Pending')\n  AND (:location_id IS NULL OR pl.location_id = :location_id)\n  AND (:carrier IS NULL OR sr.carrier = :carrier)\nORDER BY sr.estimated_delivery ASC;`,
         timestamp: "2025-07-15T09:30:00Z",
         label: "Initial version",
       },
@@ -184,7 +185,7 @@ const INITIAL_QUERIES: QueryDefinition[] = [
     versions: [
       {
         id: "v6-1",
-        sql: `WITH daily_opened AS (\n  SELECT\n    DATE(created_at) AS event_date,\n    COUNT(*) AS opened_count\n  FROM OPERATIONS.PHARMACY.OPERATIONAL_EXCEPTIONS\n  WHERE created_at >= DATEADD('day', -30, CURRENT_DATE)\n  GROUP BY DATE(created_at)\n),\ndaily_resolved AS (\n  SELECT\n    metric_date AS event_date,\n    SUM(resolved_exceptions) AS resolved_count\n  FROM ANALYTICS.PHARMACY.OPERATIONAL_DAILY_METRICS\n  WHERE metric_date >= DATEADD('day', -30, CURRENT_DATE)\n  GROUP BY metric_date\n)\nSELECT\n  COALESCE(o.event_date, r.event_date) AS report_date,\n  COALESCE(o.opened_count, 0) AS exceptions_opened,\n  COALESCE(r.resolved_count, 0) AS exceptions_resolved,\n  COALESCE(r.resolved_count, 0) - COALESCE(o.opened_count, 0) AS net_resolution\nFROM daily_opened o\nFULL OUTER JOIN daily_resolved r\n  ON o.event_date = r.event_date\nORDER BY report_date;`,
+        sql: `WITH daily_opened AS (\n  SELECT\n    DATE(created_at) AS event_date,\n    COUNT(*) AS opened_count\n  FROM workspace.default.operational_exceptions\n  WHERE created_at >= DATEADD('day', -30, CURRENT_DATE)\n  GROUP BY DATE(created_at)\n),\ndaily_resolved AS (\n  SELECT\n    metric_date AS event_date,\n    SUM(resolved_exceptions) AS resolved_count\n  FROM workspace.default.operational_daily_metrics\n  WHERE metric_date >= DATEADD('day', -30, CURRENT_DATE)\n  GROUP BY metric_date\n)\nSELECT\n  COALESCE(o.event_date, r.event_date) AS report_date,\n  COALESCE(o.opened_count, 0) AS exceptions_opened,\n  COALESCE(r.resolved_count, 0) AS exceptions_resolved,\n  COALESCE(r.resolved_count, 0) - COALESCE(o.opened_count, 0) AS net_resolution\nFROM daily_opened o\nFULL OUTER JOIN daily_resolved r\n  ON o.event_date = r.event_date\nORDER BY report_date;`,
         timestamp: "2025-07-15T09:30:00Z",
         label: "Initial version",
       },
@@ -229,6 +230,9 @@ export default function SourceQueryEditor() {
   const [editBuffer, setEditBuffer] = useState<string>("");
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [workbenchMode, setWorkbenchMode] = useState(false);
+  const [queryResult, setQueryResult] = useState<{ columns: string[]; rows: Record<string, unknown>[]; rowCount: number; executionTimeMs: number } | null>(null);
+  const [queryError, setQueryError] = useState<string | null>(null);
+  const { run: runDatabricksQuery, loading: queryRunning } = useApi("RunDatabricksQuery");
 
   // Persist to localStorage whenever queries change
   useEffect(() => {
@@ -297,9 +301,31 @@ export default function SourceQueryEditor() {
     toast.success("Query reverted", { description: "Previous version restored as new active version" });
   }, [selectedQuery.id]);
 
-  const handleRunPreview = useCallback(() => {
-    toast.success("Query executed", { description: "Preview results generated (simulated — 12 rows returned in 340ms)" });
-  }, []);
+  const handleRunPreview = useCallback(async () => {
+    // Strip named parameters (:param) and replace with NULLs for preview
+    const previewSql = activeVersion.sql
+      .replace(/;\s*$/, "")
+      .replace(/:([a-zA-Z_]+)/g, "NULL");
+    setQueryError(null);
+    try {
+      const result = await runDatabricksQuery({ sql: previewSql });
+      if (result && typeof result === "object" && "columns" in result) {
+        const typed = result as { columns: string[]; rows: Record<string, unknown>[]; rowCount: number; executionTimeMs: number };
+        setQueryResult(typed);
+        toast.success("Query executed", {
+          description: `${typed.rowCount} rows returned in ${typed.executionTimeMs}ms`,
+        });
+      }
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as { message: unknown }).message)
+          : String(error);
+      setQueryError(message);
+      setQueryResult(null);
+      toast.error("Query failed", { description: message });
+    }
+  }, [activeVersion.sql, runDatabricksQuery]);
 
   const isEditing = editingId === selectedQuery.id;
 
@@ -412,8 +438,12 @@ export default function SourceQueryEditor() {
               <div className="flex items-center gap-2">
                 {!isEditing ? (
                   <>
-                    <Button variant="outline" size="sm" className="text-xs h-8" onClick={handleRunPreview}>
-                      <Icon icon="play" className="w-3.5 h-3.5 mr-1.5" /> Run Preview
+                    <Button variant="outline" size="sm" className="text-xs h-8" onClick={handleRunPreview} disabled={queryRunning}>
+                      {queryRunning ? (
+                        <><Icon icon="loader-2" className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Running…</>
+                      ) : (
+                        <><Icon icon="play" className="w-3.5 h-3.5 mr-1.5" /> Run Preview</>
+                      )}
                     </Button>
                     <Button variant="default" size="sm" className="text-xs h-8" onClick={handleEdit}>
                       <Icon icon="pencil" className="w-3.5 h-3.5 mr-1.5" /> Edit Query
@@ -544,6 +574,69 @@ export default function SourceQueryEditor() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Live Query Results */}
+            {queryError && (
+              <Card className="border-red-200 bg-red-50">
+                <CardContent className="py-3 px-4">
+                  <div className="flex items-start gap-2">
+                    <Icon icon="alert-triangle" className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-semibold text-red-700">Query Error</p>
+                      <p className="text-[11px] text-red-600 mt-0.5 font-mono break-all">{queryError}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {queryResult && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Icon icon="table-2" className="w-4 h-4 text-green-600" />
+                      Live Results
+                      <Badge className="bg-green-100 text-green-700 border-green-200 text-[9px] h-5">
+                        {queryResult.rowCount} rows
+                      </Badge>
+                    </CardTitle>
+                    <span className="text-[10px] text-muted-foreground">
+                      Executed in {queryResult.executionTimeMs}ms
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
+                      <table className="w-full text-[11px]">
+                        <thead className="sticky top-0 z-10">
+                          <tr className="bg-muted/80 backdrop-blur-sm border-b">
+                            {queryResult.columns.map((col) => (
+                              <th key={col} className="px-3 py-2 text-left font-semibold text-foreground whitespace-nowrap">
+                                {col}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50">
+                          {queryResult.rows.slice(0, 50).map((row, idx) => (
+                            <tr key={idx} className="hover:bg-muted/30 transition-colors">
+                              {queryResult.columns.map((col) => (
+                                <td key={col} className="px-3 py-1.5 text-muted-foreground whitespace-nowrap font-mono">
+                                  {row[col] == null ? (
+                                    <span className="text-muted-foreground/40 italic">NULL</span>
+                                  ) : String(row[col])}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Version History */}
             <Card>

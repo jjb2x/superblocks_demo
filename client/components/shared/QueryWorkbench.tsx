@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { useApi } from "@/hooks/useApi.js";
 import {
   PLATFORMS,
   generateMockResults,
@@ -243,7 +244,9 @@ export default function QueryWorkbench() {
   const [result, setResult] = useState<MockResult | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [showSchema, setShowSchema] = useState(true);
+  const [queryError, setQueryError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { run: runDatabricksQuery, loading: dbRunning } = useApi("RunDatabricksQuery");
 
   const platform = PLATFORMS.find((p) => p.id === selectedPlatform) ?? PLATFORMS[0];
 
@@ -266,23 +269,56 @@ export default function QueryWorkbench() {
     }, 0);
   }, [sql]);
 
-  const handleExecute = useCallback(() => {
+  const handleExecute = useCallback(async () => {
     if (!sql.trim()) {
       toast.error("No query to execute", { description: "Write a SQL query first" });
       return;
     }
-    setIsExecuting(true);
-    // Simulate execution delay
-    const delay = 300 + Math.random() * 700;
-    setTimeout(() => {
-      const mockResult = generateMockResults(selectedPlatform);
-      setResult(mockResult);
-      setIsExecuting(false);
-      toast.success("Query executed successfully", {
-        description: `${mockResult.rows.length} rows returned in ${mockResult.executionTimeMs}ms`,
-      });
-    }, delay);
-  }, [sql, selectedPlatform]);
+    setQueryError(null);
+
+    if (selectedPlatform === "databricks") {
+      // Live Databricks execution
+      setIsExecuting(true);
+      try {
+        const dbResult = await runDatabricksQuery({ sql });
+        if (dbResult && typeof dbResult === "object" && "columns" in dbResult) {
+          const typed = dbResult as { columns: string[]; rows: Record<string, unknown>[]; rowCount: number; executionTimeMs: number };
+          setResult({
+            columns: typed.columns,
+            rows: typed.rows as Record<string, string | number | null>[],
+            executionTimeMs: typed.executionTimeMs,
+            bytesScanned: "—",
+            rowsScanned: typed.rowCount,
+          });
+          toast.success("Query executed against Databricks", {
+            description: `${typed.rowCount} rows returned in ${typed.executionTimeMs}ms`,
+          });
+        }
+      } catch (error) {
+        const message =
+          error && typeof error === "object" && "message" in error
+            ? String((error as { message: unknown }).message)
+            : String(error);
+        setQueryError(message);
+        setResult(null);
+        toast.error("Query failed", { description: message });
+      } finally {
+        setIsExecuting(false);
+      }
+    } else {
+      // Simulated for Snowflake/Oracle
+      setIsExecuting(true);
+      const delay = 300 + Math.random() * 700;
+      setTimeout(() => {
+        const mockResult = generateMockResults(selectedPlatform);
+        setResult(mockResult);
+        setIsExecuting(false);
+        toast.success("Query executed successfully", {
+          description: `${mockResult.rows.length} rows returned in ${mockResult.executionTimeMs}ms`,
+        });
+      }, delay);
+    }
+  }, [sql, selectedPlatform, runDatabricksQuery]);
 
   const handleExportCsv = useCallback(() => {
     toast.success("CSV exported", { description: "Results downloaded as query_results.csv (simulated)" });
@@ -351,6 +387,9 @@ export default function QueryWorkbench() {
               }`}
             />
             {p.label}
+            {p.id === "databricks" && selectedPlatform === "databricks" && (
+              <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-green-600 text-white font-bold uppercase tracking-wider">Live</span>
+            )}
             <span className={`w-2 h-2 rounded-full ${
               p.connectionStatus === "connected" ? "bg-green-500" :
               p.connectionStatus === "limited" ? "bg-amber-500" : "bg-red-500"
@@ -413,6 +452,19 @@ export default function QueryWorkbench() {
       </Card>
 
       {/* Results Section */}
+      {queryError && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-start gap-2">
+              <Icon icon="alert-triangle" className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-red-700">Query Error</p>
+                <p className="text-[11px] text-red-600 mt-0.5 font-mono break-all">{queryError}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {result && (
         <Card>
           <CardHeader className="pb-2 pt-3">

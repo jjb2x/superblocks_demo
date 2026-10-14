@@ -18,6 +18,8 @@ import UpdateException from "./UpdateException/api.js";
 import SetupJiraTable from "./jira/setup-jira-table.js";
 import GetJiraRequests from "./jira/get-jira-requests.js";
 import CreateJiraRequest from "./jira/create-jira-request.js";
+import SetupQueryTables from "./queries/setup-query-tables.js";
+import RunDatabricksQuery from "./queries/run-databricks-query.js";
 
 const apis = {
     GetExceptions,
@@ -25,6 +27,8 @@ const apis = {
     SetupJiraTable,
     GetJiraRequests,
     CreateJiraRequest,
+    SetupQueryTables,
+    RunDatabricksQuery,
 } as const;
 
 export default apis;
