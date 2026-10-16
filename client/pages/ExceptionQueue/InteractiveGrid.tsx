@@ -8,13 +8,14 @@ import { updateException } from "@/data/exceptions";
 import { getLocationName } from "@/data/locations";
 import { APP_USERS } from "@/data/users";
 import { useAppContext } from "@/context/AppContext";
+import { usePriorities } from "@/context/PriorityContext";
 import type { ExceptionRecord, ExceptionStatus, Priority } from "@/data/types";
 
 const STATUS_OPTS: ExceptionStatus[] = [
   "New", "Under Review", "Assigned", "In Progress",
   "Waiting on External Party", "Resolved", "Closed",
 ];
-const PRIORITY_OPTS: Priority[] = ["Critical", "High", "Medium", "Low"];
+
 const PAGE_SIZE = 20;
 
 interface InteractiveGridProps {
@@ -28,6 +29,8 @@ interface CellFlash {
 }
 
 export default function InteractiveGrid({ data }: InteractiveGridProps) {
+  const { activePriorities } = usePriorities();
+  const activeNames = activePriorities.map((p) => p.name);
   const { triggerExceptionRefresh, userName } = useAppContext();
   const [page, setPage] = useState(0);
   const [flashes, setFlashes] = useState<CellFlash[]>([]);
@@ -197,7 +200,10 @@ export default function InteractiveGrid({ data }: InteractiveGridProps) {
                     onChange={(e) => handlePriorityChange(ex, e.target.value)}
                     className="w-full h-7 px-1 rounded border border-border bg-background text-xs cursor-pointer focus:ring-1 focus:ring-primary"
                   >
-                    {PRIORITY_OPTS.map((p) => <option key={p} value={p}>{p}</option>)}
+                    {activeNames.map((p) => <option key={p} value={p}>{p}</option>)}
+                    {!activeNames.includes(ex.priority) && (
+                      <option value={ex.priority} disabled>{ex.priority} (retired)</option>
+                    )}
                   </select>
                 </td>
 

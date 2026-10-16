@@ -22,6 +22,7 @@ import { getLocationName } from "@/data/locations";
 import { APP_USERS } from "@/data/users";
 import { useAppContext } from "@/context/AppContext";
 import WorkflowLineageTab from "./WorkflowLineageTab";
+import { useActivePriorityNames } from "@/context/PriorityContext";
 import { useApi } from "@/hooks/useApi";
 
 interface ExceptionDrawerProps {
@@ -34,7 +35,7 @@ const STATUSES: ExceptionStatus[] = [
   "New", "Under Review", "Assigned", "In Progress",
   "Waiting on External Party", "Resolved", "Closed",
 ];
-const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Critical"];
+
 
 function formatTs(ts: string) {
   try { return format(parseISO(ts), "MMM d, yyyy h:mm a"); } catch { return ts; }
@@ -61,6 +62,7 @@ export default function ExceptionDrawer({ exception, open, onClose }: ExceptionD
   // Edit state
   const [editStatus, setEditStatus] = useState<ExceptionStatus>("New");
   const [editPriority, setEditPriority] = useState<Priority>("Medium");
+  const priorityOptions = useActivePriorityNames(exception?.priority);
   const [editOwner, setEditOwner] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
   const [editImpact, setEditImpact] = useState("");
@@ -361,7 +363,7 @@ export default function ExceptionDrawer({ exception, open, onClose }: ExceptionD
                     <Label className="text-xs">Priority</Label>
                     <Select value={editPriority} onValueChange={(v) => setEditPriority(v as Priority)}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>{PRIORITIES.map((p) => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}</SelectContent>
+                      <SelectContent>{priorityOptions.map((p) => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1">

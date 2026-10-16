@@ -1,18 +1,35 @@
 import { cn } from "@/lib/utils";
 import type { Priority, ExceptionStatus } from "@/data/types";
+import { usePrioritiesOptional } from "@/context/PriorityContext";
+import { colorClassesFor } from "@/data/priorityColors";
+
+const DEFAULT_COLORS: Record<string, string> = {
+  Critical: "red",
+  High: "orange",
+  Medium: "yellow",
+  Low: "blue",
+};
 
 export function PriorityBadge({ priority }: { priority: Priority }) {
-  const config: Record<Priority, { label: string; className: string }> = {
-    Critical: { label: "Critical", className: "bg-red-100 text-red-800 border-red-200" },
-    High: { label: "High", className: "bg-orange-100 text-orange-800 border-orange-200" },
-    Medium: { label: "Medium", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-    Low: { label: "Low", className: "bg-blue-100 text-blue-800 border-blue-200" },
-  };
-  const c = config[priority];
+  const ctx = usePrioritiesOptional();
+  const config = ctx?.byName.get(priority);
+  const colors = colorClassesFor(config?.color ?? DEFAULT_COLORS[priority]);
+  const isTop = ctx ? ctx.topPriorityName === priority : priority === "Critical";
+  const isRetired = config ? !config.is_active : false;
+
   return (
-    <span className={cn("inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium", c.className)}>
-      {priority === "Critical" && <span className="mr-1 w-1.5 h-1.5 rounded-full bg-red-600 inline-block animate-pulse" />}
-      {c.label}
+    <span
+      className={cn(
+        "inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium",
+        colors.badge,
+        isRetired && "opacity-70 line-through decoration-1",
+      )}
+      title={isRetired ? `${priority} (retired)` : config?.description ?? undefined}
+    >
+      {isTop && !isRetired && (
+        <span className={cn("mr-1 w-1.5 h-1.5 rounded-full inline-block animate-pulse", colors.dot)} />
+      )}
+      {priority}
     </span>
   );
 }

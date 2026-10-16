@@ -1,6 +1,9 @@
 // Core types for the Pharmacy Operations Command Center
 
-export type Priority = "Low" | "Medium" | "High" | "Critical";
+/** Built-in defaults. Live priorities are managed in Databricks (see PriorityContext). */
+export type DefaultPriority = "Low" | "Medium" | "High" | "Critical";
+/** Any priority name, including custom ones configured on the Manage Priorities page. */
+export type Priority = string;
 export type ExceptionStatus = "New" | "Under Review" | "Assigned" | "In Progress" | "Waiting on External Party" | "Resolved" | "Closed";
 
 export type IssueCategory =

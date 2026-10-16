@@ -16,16 +16,18 @@ import { getExceptions } from "@/data/exceptions";
 import { getLocationName } from "@/data/locations";
 import { APP_USERS } from "@/data/users";
 import { useAppContext } from "@/context/AppContext";
+import { usePriorities } from "@/context/PriorityContext";
+import { colorClassesFor } from "@/data/priorityColors";
+import { useNavigate } from "react-router";
 import type { ExceptionRecord, ExceptionStatus, Priority, IssueCategory } from "@/data/types";
 
 const PAGE_SIZE = 20;
 
 type QueueTab = "open" | "resolved" | "closed";
 
-const PRIORITY_ORDER: Record<Priority, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
 const STATUS_OPTS: ExceptionStatus[] = ["New", "Under Review", "Assigned", "In Progress", "Waiting on External Party", "Resolved", "Closed"];
-const PRIORITY_OPTS: Priority[] = ["Critical", "High", "Medium", "Low"];
+
 const CATEGORIES: IssueCategory[] = [
   "Inventory", "Insurance", "Staffing", "Workflow Delay", "Technology",
   "Vendor", "Shipping", "Prescription Clarification", "Capacity", "Other",
@@ -57,6 +59,8 @@ function formatShort(ts: string): string {
 
 export default function ExceptionQueue() {
   const { exceptionRefreshKey, setSelectedExceptionId, selectedExceptionId } = useAppContext();
+  const navigate = useNavigate();
+  const { activePriorities, byName, rankOf, topPriorityName, isHighPriority } = usePriorities();
   const [activeTab, setActiveTab] = useState<QueueTab>("open");
   const [searchRaw, setSearchRaw] = useState("");
   const [search, setSearch] = useState("");
@@ -192,7 +196,7 @@ const exceptionSummary = useMemo(() => {
   );
 
   const highPriority = openExceptions.filter(
-    (e) => e.priority === "Critical" || e.priority === "High"
+    (e) => isHighPriority(e.priority)
   ).length;
 
   const unassigned = openExceptions.filter(
@@ -210,7 +214,7 @@ const exceptionSummary = useMemo(() => {
     unassigned,
     prescriptionsAffected,
   };
-}, [allExceptions]);
+}, [allExceptions, isHighPriority]);
 
   // Reset page & clear status filter when switching tabs
   const handleTabChange = useCallback((tab: QueueTab) => {
@@ -254,7 +258,7 @@ const exceptionSummary = useMemo(() => {
       });
     } else {
       list.sort((a, b) => {
-        const po = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+        const po = rankOf(a.priority) - rankOf(b.priority);
         if (po !== 0) return po;
         const dateDiff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         if (dateDiff !== 0) return dateDiff;
@@ -262,7 +266,7 @@ const exceptionSummary = useMemo(() => {
       });
     }
     return list;
-  }, [filtered, sortKey, sortDir]);
+  }, [filtered, sortKey, sortDir, rankOf]);
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const pageData = useMemo(() => sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [sorted, page]);
@@ -358,10 +362,19 @@ const exceptionSummary = useMemo(() => {
             <h1 className="text-xl font-bold text-foreground">Exception Work Queue</h1>
             <p className="text-sm text-muted-foreground">
               {databricksLoading ? "Loading live data…" : `${sorted.length} records`}
-              {activeTab === "open" && <> &bull; {filtered.filter((e) => e.priority === "Critical").length} critical open</>}
+              {activeTab === "open" && <> &bull; {filtered.filter((e) => e.priority === topPriorityName).length} {topPriorityName.toLowerCase()} open</>}
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              onClick={() => navigate("/app/queue/priorities")}
+              variant="outline"
+              size="sm"
+              className="text-xs h-8"
+            >
+              <Icon icon="list-ordered" className="w-3.5 h-3.5 mr-1.5" />
+              Manage Priorities
+            </Button>
             <Button
               onClick={() => setShowAutoDemo((v) => !v)}
               variant={showAutoDemo ? "default" : "outline"}
@@ -447,7 +460,7 @@ const exceptionSummary = useMemo(() => {
             <SelectTrigger className="h-8 text-xs w-32"><SelectValue placeholder="Priority" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">All Priorities</SelectItem>
-              {PRIORITY_OPTS.map((p) => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}
+              {activePriorities.map((p) => <SelectItem key={p.priority_id} value={p.name} className="text-xs">{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as IssueCategory | "all")}>
@@ -538,11 +551,11 @@ const exceptionSummary = useMemo(() => {
             {pageData.map((ex) => {
               const isOverdue = new Date(ex.resolutionDueDate) < new Date() && ex.status !== "Resolved" && ex.status !== "Closed";
               const owner = APP_USERS.find((u) => u.id === ex.assignedOwner);
-              const isCritical = ex.priority === "Critical" && ex.status !== "Resolved" && ex.status !== "Closed";
+              const isCritical = ex.priority === topPriorityName && ex.status !== "Resolved" && ex.status !== "Closed";
               return (
                 <tr
                   key={ex.id}
-                  className={`border-b border-border/50 hover:bg-accent/40 cursor-pointer transition-colors ${isCritical ? "bg-red-50/40" : ""}`}
+                  className={`border-b border-border/50 hover:bg-accent/40 cursor-pointer transition-colors ${isCritical ? colorClassesFor(byName.get(ex.priority)?.color).row : ""}`}
                   onClick={() => handleRowClick(ex)}
                 >
                   <td className="px-3 py-2.5 font-medium text-primary">{ex.id}</td>

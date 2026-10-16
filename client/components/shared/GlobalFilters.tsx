@@ -1,4 +1,5 @@
 import { useAppContext } from "@/context/AppContext";
+import { usePrioritiesOptional } from "@/context/PriorityContext";
 import { LOCATIONS } from "@/data/locations";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +17,8 @@ const SERVICE_TYPES: ServiceType[] = [
   "Retail Pharmacy", "Specialty Pharmacy", "Central Fill",
   "Mail Order", "Transplant Pharmacy", "Clinic Pharmacy", "Medication Access Services",
 ];
-const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Critical"];
+const DEFAULT_PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
+
 const CATEGORIES: IssueCategory[] = [
   "Inventory", "Insurance", "Staffing", "Workflow Delay", "Technology",
   "Vendor", "Shipping", "Prescription Clarification", "Capacity", "Other",
@@ -24,6 +26,8 @@ const CATEGORIES: IssueCategory[] = [
 
 export default function GlobalFilters() {
   const { filters, setFilter, resetFilters } = useAppContext();
+  const priorityCtx = usePrioritiesOptional();
+  const priorityNames = priorityCtx ? priorityCtx.activePriorities.map((p) => p.name) : DEFAULT_PRIORITIES;
 
   const hasFilters =
     filters.locationId !== null ||
@@ -94,7 +98,7 @@ export default function GlobalFilters() {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Priorities</SelectItem>
-          {PRIORITIES.map((p) => (
+          {priorityNames.map((p) => (
             <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
           ))}
         </SelectContent>

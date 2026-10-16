@@ -33,6 +33,10 @@ export const router = createBrowserRouter([
         lazy: () => import("./pages/ExceptionQueue/index.js").then((m) => ({ Component: m.default })),
       },
       {
+        path: "queue/priorities",
+        lazy: () => import("./pages/ManagePriorities/index.js").then((m) => ({ Component: m.default })),
+      },
+      {
         path: "new-issue",
         lazy: () => import("./pages/AddNewIssue/index.js").then((m) => ({ Component: m.default })),
       },

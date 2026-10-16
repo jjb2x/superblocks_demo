@@ -15,6 +15,7 @@ import { LOCATIONS } from "@/data/locations";
 import { APP_USERS } from "@/data/users";
 import { addException, generateExceptionId } from "@/data/exceptions";
 import { useAppContext } from "@/context/AppContext";
+import { usePriorities } from "@/context/PriorityContext";
 import type { Priority, IssueCategory, ServiceType, ExceptionStatus, ExceptionRecord } from "@/data/types";
 
 const SERVICE_TYPES: ServiceType[] = [
@@ -25,7 +26,7 @@ const CATEGORIES: IssueCategory[] = [
   "Inventory", "Insurance", "Staffing", "Workflow Delay", "Technology",
   "Vendor", "Shipping", "Prescription Clarification", "Capacity", "Other",
 ];
-const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Critical"];
+
 const SUBTYPES: Record<IssueCategory, string[]> = {
   Inventory: ["Stockout", "Low Stock", "Expiry Risk", "Recalls", "Storage Issue"],
   Insurance: ["Prior Auth Denied", "Coverage Lapsed", "Wrong Payer", "Copay Dispute", "Formulary Exception"],
@@ -42,6 +43,7 @@ const SUBTYPES: Record<IssueCategory, string[]> = {
 export default function AddNewIssue() {
   const navigate = useNavigate();
   const { triggerExceptionRefresh, setSelectedExceptionId, selectedLocationId } = useAppContext();
+  const { activePriorities, topPriorityName, isHighPriority } = usePriorities();
 
   // Form state
   const [locationId, setLocationId] = useState(selectedLocationId ?? "");
@@ -96,8 +98,8 @@ export default function AddNewIssue() {
   const rxNum = parseInt(rxAffected) || 0;
   const delayNum = parseInt(delayMinutes) || 0;
   const showEscalationWarning = rxNum > 25;
-  const showPrioritySuggestion = delayNum > 120 && priority !== "Critical" && priority !== "High";
-  const isCritical = priority === "Critical";
+  const showPrioritySuggestion = delayNum > 120 && !!priority && !isHighPriority(priority);
+  const isCritical = !!priority && priority === topPriorityName;
 
   const subtypeOptions = useMemo(() =>
     category ? SUBTYPES[category] ?? [] : [], [category]);
@@ -267,7 +269,7 @@ export default function AddNewIssue() {
                 <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select priority" /></SelectTrigger>
                   <SelectContent>
-                    {PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    {activePriorities.map((p) => <SelectItem key={p.priority_id} value={p.name}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

@@ -20,6 +20,12 @@ import GetJiraRequests from "./jira/get-jira-requests.js";
 import CreateJiraRequest from "./jira/create-jira-request.js";
 import SetupQueryTables from "./queries/setup-query-tables.js";
 import RunDatabricksQuery from "./queries/run-databricks-query.js";
+import SetupPriorityTable from "./priorities/setup-priority-table.js";
+import GetPriorities from "./priorities/get-priorities.js";
+import SavePriority from "./priorities/save-priority.js";
+import RetirePriority from "./priorities/retire-priority.js";
+import ReactivatePriority from "./priorities/reactivate-priority.js";
+import ReorderPriorities from "./priorities/reorder-priorities.js";
 
 const apis = {
     GetExceptions,
@@ -29,6 +35,12 @@ const apis = {
     CreateJiraRequest,
     SetupQueryTables,
     RunDatabricksQuery,
+    SetupPriorityTable,
+    GetPriorities,
+    SavePriority,
+    RetirePriority,
+    ReactivatePriority,
+    ReorderPriorities,
 } as const;
 
 export default apis;
