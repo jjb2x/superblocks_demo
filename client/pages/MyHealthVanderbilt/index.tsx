@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import EpicLiveFeed from "@/components/shared/EpicLiveFeed";
 import PhoneMockup from "@/components/shared/PhoneMockup";
 import TechnicalArchitecture from "@/components/shared/TechnicalArchitecture";
+import DiagnosisCodeForm from "@/components/shared/DiagnosisCodeForm";
 
 // --- Simulated Data ---
 
@@ -322,6 +323,9 @@ export default function MyHealthVanderbiltPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Diagnosis Code Entry (standalone demo, no backend) */}
+        <DiagnosisCodeForm />
 
         {/* Row 3: Prior Authorization Tracker */}
         <Card>
